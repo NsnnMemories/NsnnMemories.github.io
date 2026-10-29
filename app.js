@@ -1,19 +1,10 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js";
 import { observeFades, fmtDate, loaderHTML } from "./theme.js";
+import { firebaseConfig } from "./firebase-config.js";
 
-const db = getFirestore(initializeApp(firebaseConfig));
 const $ = id => document.getElementById(id);
-let tab = 'memory', items = [];
+let tab = 'memory', items = [], db = null, fs = null;
 
-onSnapshot(query(collection(db,'submissions'), where('status','==','approved')), snap => {
-  items = snap.docs.map(d => d.data()).sort((a,b) => (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
-  render();
-}, () => { $('list').innerHTML = '<p class="empty">Could not load. Check firebase-config.js ✨</p>'; });
-
-$('list').innerHTML = loaderHTML;
-
+/* ---------- UI first, so tabs and the form work even if Firebase fails ---------- */
 function render(){
   if (tab === 'poty') return renderPoty();
   const list = items.filter(i => i.type === tab), box = $('list');
@@ -31,50 +22,6 @@ function render(){
   box.append(grid); observeFades(box);
 }
 
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
-  tab = b.dataset.t; $('add').hidden = tab === 'poty'; $('add').textContent = tab === 'memory' ? 'Add a memory' : 'Add a quote'; render();
-});
-
-const open = () => {
-  $('mtitle').textContent = tab === 'memory' ? 'Share a memory' : 'Share a quote';
-  $('imgBox').hidden = tab !== 'memory'; $('qBox').hidden = tab !== 'quote';
-  $('file').required = tab === 'memory'; $('text').required = tab === 'quote';
-  $('modal').classList.add('open');
-};
-const close = () => { $('modal').classList.remove('open'); $('form').reset(); $('prev').style.display = 'none'; };
-$('add').onclick = open; $('cancel').onclick = close;
-$('modal').onclick = e => { if (e.target === $('modal')) close(); };
-
-// shrink the photo so it fits free Firestore (no paid Storage needed)
-function compress(file, max = 1000){
-  return new Promise((res, rej) => {
-    const img = new Image(), url = URL.createObjectURL(file);
-    img.onload = () => {
-      const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
-      c.width = img.width * k; c.height = img.height * k;
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-      res(c.toDataURL('image/jpeg', .72));
-    };
-    img.onerror = rej; img.src = url;
-  });
-}
-$('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; $('prev').src = await compress(f, 500); $('prev').style.display = 'block'; };
-
-const toast = m => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 3200); };
-
-$('form').onsubmit = async e => {
-  e.preventDefault(); $('send').disabled = true; $('send').textContent = '✨ Sending…';
-  try {
-    const data = { type: tab, name: $('name').value.trim(), status: 'pending', createdAt: serverTimestamp() };
-    if (tab === 'memory') data.image = await compress($('file').files[0]); else data.text = $('text').value.trim();
-    await addDoc(collection(db,'submissions'), data);
-    close(); toast('Sent! It will show up once approved 💙');
-  } catch (err) { toast('Something went wrong. Try a smaller picture.'); console.error(err); }
-  $('send').disabled = false; $('send').textContent = 'Send';
-};
-
-// Photo of the Year: one winner per year, picked by the admin
 function renderPoty(){
   const box = $('list'); box.innerHTML = '';
   const list = items.filter(i => i.type === 'memory' && i.featuredYear).sort((a,b) => b.featuredYear - a.featuredYear);
@@ -89,4 +36,65 @@ function renderPoty(){
     sec.append(h, fr, s); box.append(sec);
   });
   observeFades(box);
+}
+
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
+  tab = b.dataset.t; $('add').hidden = tab === 'poty';
+  $('add').textContent = tab === 'memory' ? 'Add a memory' : 'Add a quote'; render();
+});
+
+const openModal = () => {
+  $('mtitle').textContent = tab === 'memory' ? 'Share a memory' : 'Share a quote';
+  $('imgBox').hidden = tab !== 'memory'; $('qBox').hidden = tab !== 'quote';
+  $('file').required = tab === 'memory'; $('text').required = tab === 'quote';
+  $('modal').classList.add('open');
+};
+const closeModal = () => { $('modal').classList.remove('open'); $('form').reset(); $('prev').style.display = 'none'; };
+$('add').onclick = openModal; $('cancel').onclick = closeModal;
+$('modal').onclick = e => { if (e.target === $('modal')) closeModal(); };
+
+function compress(file, max = 1000){
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = img.width * k; c.height = img.height * k;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      res(c.toDataURL('image/jpeg', .72));
+    };
+    img.onerror = rej; img.src = url;
+  });
+}
+$('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; $('prev').src = await compress(f, 500); $('prev').style.display = 'block'; };
+
+const toast = m => { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.append(t); setTimeout(() => t.remove(), 3800); };
+
+$('form').onsubmit = async e => {
+  e.preventDefault();
+  if (!db) return toast('Not connected to Firebase yet. Check firebase-config.js');
+  $('send').disabled = true; $('send').textContent = '✨ Sending…';
+  try {
+    const data = { type: tab, name: $('name').value.trim(), status: 'pending', createdAt: fs.serverTimestamp() };
+    if (tab === 'memory') data.image = await compress($('file').files[0]); else data.text = $('text').value.trim();
+    await fs.addDoc(fs.collection(db, 'submissions'), data);
+    closeModal(); toast('Sent! It will show up once approved 💙');
+  } catch (err) { toast('Could not send: ' + (err.code || err.message)); console.error(err); }
+  $('send').disabled = false; $('send').textContent = 'Send';
+};
+
+/* ---------- Firebase (loaded after the UI is alive) ---------- */
+$('list').innerHTML = loaderHTML;
+try {
+  const V = "https://www.gstatic.com/firebasejs/10.12.2/";
+  const { initializeApp } = await import(V + "firebase-app.js");
+  fs = await import(V + "firebase-firestore.js");
+  db = fs.getFirestore(initializeApp(firebaseConfig));
+  fs.onSnapshot(fs.query(fs.collection(db, 'submissions'), fs.where('status', '==', 'approved')), snap => {
+    items = snap.docs.map(d => d.data()).sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    render();
+  }, err => { console.error(err); $('list').innerHTML = `<p class="empty">Could not load: ${err.code || err.message}<br>Check the Firestore database and rules.</p>`; });
+} catch (err) {
+  console.error(err);
+  $('list').innerHTML = `<p class="empty">Firebase failed to load: ${err.message}</p>`;
 }
