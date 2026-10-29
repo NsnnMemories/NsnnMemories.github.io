@@ -14,5 +14,8 @@
 - Pink theme turns on by itself in October (see `theme.js`). To preview: run `document.documentElement.classList.add('october')` in the console.
 - Visitors can only create *pending* items; only your admin email can approve, deny or delete.
 
+## School years (folders)
+Memories and Quotes are grouped into one folder per school year, September to September (Sep 2025 - Aug 2026 = "2025/2026"). Nothing is hard-coded: a new folder appears by itself every September, forever.
+
 ## Photo of the Year
-In admin -> Approved, press "Photo of <year>" on any approved memory. One winner per year (picking a new one replaces the old). The year comes from the photo's submit date. Re-paste firestore.rules after updating.
+Admin -> Approved -> press "Photo of the Year 2025/2026" on any approved memory. One winner per school year (picking another replaces it). The season comes from the photo's submit date.

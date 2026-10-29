@@ -1,4 +1,4 @@
-import { observeFades, fmtDate, loaderHTML } from "./theme.js";
+import { observeFades, fmtDate, loaderHTML, seasonOf, seasonLabel } from "./theme.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const $ = id => document.getElementById(id);
@@ -36,14 +36,14 @@ function render(){
     if (i.type === 'memory'){ const im = document.createElement('img'); im.src = i.image; el.append(im); }
     else { const q = document.createElement('p'); q.className = 'quote'; q.textContent = i.text; el.append(q); }
     const s = document.createElement('div'); s.className = 'sig'; s.innerHTML = '<b></b><span></span>';
-    s.firstChild.textContent = '— ' + i.name + ' · ' + i.type; s.lastChild.textContent = fmtDate(i.createdAt); el.append(s);
-    if (i.featuredYear){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = '🏆 Photo of ' + i.featuredYear; el.append(b); }
+    s.firstChild.textContent = '— ' + i.name + ' · ' + i.type + ' · ' + seasonLabel(seasonOf(i.createdAt)); s.lastChild.textContent = fmtDate(i.createdAt); el.append(s);
+    if (i.featuredYear){ const b = document.createElement('span'); b.className = 'badge'; b.textContent = '🏆 Photo of the Year ' + seasonLabel(i.featuredYear); el.append(b); }
     const r = document.createElement('div'); r.className = 'row';
     const btn = (cls, txt, fn) => { const x = document.createElement('button'); x.className = cls; x.textContent = txt; x.onclick = act(fn); r.append(x); };
     if (i.status === 'pending') btn('btn sm', 'Accept', () => fs.updateDoc(ref(), { status: 'approved' }));
     if (i.status === 'approved' && i.type === 'memory'){
-      const yr = i.createdAt?.toDate ? i.createdAt.toDate().getFullYear() : new Date().getFullYear();
-      btn('btn ghost sm', i.featuredYear ? 'Remove from Photo of the Year' : 'Photo of ' + yr, async () => {
+      const yr = seasonOf(i.createdAt);
+      btn('btn ghost sm', i.featuredYear ? 'Remove from Photo of the Year' : 'Photo of the Year ' + seasonLabel(yr), async () => {
         const batch = fs.writeBatch(db);
         if (i.featuredYear) batch.update(ref(), { featuredYear: fs.deleteField() });
         else {

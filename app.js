@@ -1,15 +1,25 @@
-import { observeFades, fmtDate, loaderHTML } from "./theme.js";
+import { observeFades, fmtDate, loaderHTML, seasonOf, currentSeason, seasonLabel } from "./theme.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const $ = id => document.getElementById(id);
-let tab = 'memory', items = [], db = null, fs = null;
+let tab = 'memory', items = [], db = null, fs = null, season = null;
 
 /* ---------- UI first, so tabs and the form work even if Firebase fails ---------- */
 function render(){
   if (tab === 'poty') return renderPoty();
-  const list = items.filter(i => i.type === tab), box = $('list');
-  box.innerHTML = '';
-  if (!list.length){ box.innerHTML = `<p class="empty pop">Nothing here yet — be the first! ✨</p>`; return; }
+  const box = $('list'); box.innerHTML = '';
+  const mine = items.filter(i => i.type === tab), cur = currentSeason();
+  const seasons = [...new Set([cur, ...mine.map(i => seasonOf(i.createdAt))])].sort((x, y) => y - x);
+  if (season === null || !seasons.includes(season)) season = cur;
+  const bar = document.createElement('div'); bar.className = 'folders';
+  seasons.forEach(y => {
+    const b = document.createElement('button'); b.className = 'folder' + (y === season ? ' active' : '');
+    b.textContent = '📁 ' + seasonLabel(y) + ' · ' + mine.filter(i => seasonOf(i.createdAt) === y).length;
+    b.onclick = () => { season = y; render(); }; bar.append(b);
+  });
+  box.append(bar);
+  const list = mine.filter(i => seasonOf(i.createdAt) === season);
+  if (!list.length){ const p = document.createElement('p'); p.className = 'empty pop'; p.textContent = 'Nothing in this folder yet — be the first! ✨'; box.append(p); return; }
   const grid = document.createElement('div'); grid.className = 'grid';
   list.forEach(i => {
     const el = document.createElement('div'); el.className = 'item fade';
@@ -24,16 +34,17 @@ function render(){
 
 function renderPoty(){
   const box = $('list'); box.innerHTML = '';
-  const list = items.filter(i => i.type === 'memory' && i.featuredYear).sort((a,b) => b.featuredYear - a.featuredYear);
+  const list = items.filter(i => i.type === 'memory' && i.featuredYear).sort((x, y) => y.featuredYear - x.featuredYear);
   if (!list.length){ box.innerHTML = '<p class="empty pop">The first Photo of the Year is on its way ✨</p>'; return; }
   list.forEach(i => {
     const sec = document.createElement('section'); sec.className = 'poty fade';
-    const h = document.createElement('h2'); h.className = 'pop grad'; h.textContent = i.featuredYear;
+    const k = document.createElement('p'); k.className = 'kicker'; k.textContent = 'Photo of the Year';
+    const h = document.createElement('h2'); h.className = 'pop grad'; h.textContent = seasonLabel(i.featuredYear);
     const fr = document.createElement('div'); fr.className = 'frame';
-    const im = document.createElement('img'); im.src = i.image; im.alt = 'Photo of the Year ' + i.featuredYear; fr.append(im);
+    const im = document.createElement('img'); im.src = i.image; im.alt = 'Photo of the Year ' + seasonLabel(i.featuredYear); fr.append(im);
     const s = document.createElement('div'); s.className = 'sig'; s.innerHTML = '<b></b><span></span>';
     s.firstChild.textContent = '— ' + i.name; s.lastChild.textContent = fmtDate(i.createdAt);
-    sec.append(h, fr, s); box.append(sec);
+    sec.append(k, h, fr, s); box.append(sec);
   });
   observeFades(box);
 }
