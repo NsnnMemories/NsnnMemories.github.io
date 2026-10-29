@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>Admin ✨</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><h1 class="pop"><span class="grad">Admin</span> ✨</h1></header>
+<main>
+  <form class="sheet login" id="login">
+    <h2>Log in</h2>
+    <label>Email</label><input id="email" type="email" required>
+    <label>Password</label><input id="pass" type="password" required>
+    <div class="row"><button class="btn">Log in</button></div>
+    <p id="err" class="sub"></p>
+  </form>
+  <section id="panel" hidden>
+    <div class="tabs">
+      <button class="tab active" data-s="pending">⏳ Pending <span id="cp"></span></button>
+      <button class="tab" data-s="approved">✅ Approved</button>
+      <button class="btn ghost sm" id="out">Log out</button>
+    </div>
+    <div id="list"></div>
+  </section>
+</main>
+<script type="module" src="admin.js"></script>
+</body>
+</html>
